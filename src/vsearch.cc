@@ -80,6 +80,7 @@
 #include "mask.h"
 #include "orient.h"
 #include "rereplicate.h"
+#include "daemon.h"
 #include "search.h"
 #include "search_exact.h"
 #include "sff_convert.h"
@@ -1105,8 +1106,8 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
 {
   vsearch_init_defaults();
 
-  static constexpr auto number_of_commands = std::size_t{50};
-  static constexpr auto number_of_options = std::size_t{247};
+  static constexpr auto number_of_commands = std::size_t{52};
+  static constexpr auto number_of_options = std::size_t{251};
   static constexpr auto max_number_of_options_per_command = std::size_t{99};
 
   parameters.progname = argv[0];
@@ -1146,6 +1147,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_clusterout_id,
       option_clusterout_sort,
       option_clusters,
+      option_config,
       option_cons_truncate,
       option_consout,
       option_cut,
@@ -1254,6 +1256,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_maskfasta,
       option_match,
       option_matched,
+      option_max_batch_sequences,
       option_max_unmasked_pct,
       option_maxaccepts,
       option_maxdiffs,
@@ -1334,6 +1337,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_sortbylength,
       option_sortbysize,
       option_strand,
+      option_submit_query,
       option_subseq_end,
       option_subseq_start,
       option_tabbedout,
@@ -1356,6 +1360,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_udbstats,
       option_unoise_alpha,
       option_usearch_global,
+      option_usearch_global_daemon,
       option_userfields,
       option_userout,
       option_usersort,
@@ -1396,6 +1401,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       {"clusterout_id",         no_argument,       nullptr, 0 },
       {"clusterout_sort",       no_argument,       nullptr, 0 },
       {"clusters",              required_argument, nullptr, 0 },
+      {"config",                required_argument, nullptr, 0 },
       {"cons_truncate",         no_argument,       nullptr, 0 },
       {"consout",               required_argument, nullptr, 0 },
       {"cut",                   required_argument, nullptr, 0 },
@@ -1504,6 +1510,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       {"maskfasta",             required_argument, nullptr, 0 },
       {"match",                 required_argument, nullptr, 0 },
       {"matched",               required_argument, nullptr, 0 },
+      {"max_batch_sequences",   required_argument, nullptr, 0 },
       {"max_unmasked_pct",      required_argument, nullptr, 0 },
       {"maxaccepts",            required_argument, nullptr, 0 },
       {"maxdiffs",              required_argument, nullptr, 0 },
@@ -1584,6 +1591,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       {"sortbylength",          required_argument, nullptr, 0 },
       {"sortbysize",            required_argument, nullptr, 0 },
       {"strand",                required_argument, nullptr, 0 },
+      {"submit_query",          required_argument, nullptr, 0 },
       {"subseq_end",            required_argument, nullptr, 0 },
       {"subseq_start",          required_argument, nullptr, 0 },
       {"tabbedout",             required_argument, nullptr, 0 },
@@ -1606,6 +1614,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       {"udbstats",              required_argument, nullptr, 0 },
       {"unoise_alpha",          required_argument, nullptr, 0 },
       {"usearch_global",        required_argument, nullptr, 0 },
+      {"usearch_global_daemon", required_argument, nullptr, 0 },
       {"userfields",            required_argument, nullptr, 0 },
       {"userout",               required_argument, nullptr, 0 },
       {"usersort",              no_argument,       nullptr, 0 },
@@ -1654,6 +1663,18 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
           parameters.opt_usearch_global = optarg;
           break;
 
+        case option_usearch_global_daemon:
+          parameters.opt_usearch_global_daemon = optarg;
+          break;
+
+        case option_submit_query:
+          parameters.opt_submit_query = optarg;
+          break;
+
+        case option_config:
+          parameters.opt_config = optarg;
+          break;
+
         case option_db:
           opt_db = optarg;
           parameters.opt_db = optarg;
@@ -1661,6 +1682,10 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
 
         case option_id:
           opt_id = args_getdouble(optarg);
+          break;
+
+        case option_max_batch_sequences:
+          parameters.opt_max_batch_sequences = static_cast<int64_t>(args_getlong(optarg));
           break;
 
         case option_maxaccepts:
@@ -2846,6 +2871,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_sintax,
       option_sortbylength,
       option_sortbysize,
+      option_submit_query,
       option_uchime2_denovo,
       option_uchime3_denovo,
       option_uchime_denovo,
@@ -2854,6 +2880,7 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
       option_udbinfo,
       option_udbstats,
       option_usearch_global,
+      option_usearch_global_daemon,
       option_v,
       option_version
     };
@@ -4402,6 +4429,12 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
         option_xsize,
         -1 },
 
+      { option_submit_query,
+        option_config,
+        option_log,
+        option_quiet,
+        -1 },
+
       { option_uchime2_denovo,
         option_abskew,
         option_alignwidth,
@@ -4712,6 +4745,42 @@ auto args_init(int argc, char ** argv, struct Parameters & parameters) -> void
         option_xee,
         option_xlength,
         option_xsize,
+        -1 },
+
+      { option_usearch_global_daemon,
+        option_config,
+        option_max_batch_sequences,
+        option_db,
+        option_dbmask,
+        option_id,
+        option_maxaccepts,
+        option_maxrejects,
+        option_maxhits,
+        option_strand,
+        option_threads,
+        option_wordlength,
+        option_iddef,
+        option_mincols,
+        option_minseqlength,
+        option_maxseqlength,
+        option_hardmask,
+        option_fulldp,
+        option_self,
+        option_selfid,
+        option_sizein,
+        option_sizeout,
+        option_qmask,
+        option_query_cov,
+        option_target_cov,
+        option_weak_id,
+        option_maxid,
+        option_output_no_hits,
+        option_top_hits_only,
+        option_uc_allhits,
+        option_minwordmatches,
+        option_log,
+        option_no_progress,
+        option_quiet,
         -1 },
 
       { option_v,
@@ -6128,6 +6197,14 @@ auto main(int argc, char** argv) -> int
   else if (parameters.opt_usearch_global != nullptr)
     {
       cmd_usearch_global(parameters);
+    }
+  else if (parameters.opt_usearch_global_daemon != nullptr)
+    {
+      cmd_usearch_global_daemon(parameters, cmdline, prog_header.data());
+    }
+  else if (parameters.opt_submit_query != nullptr)
+    {
+      cmd_submit_query(parameters);
     }
   else if (parameters.opt_sortbysize != nullptr)
     {

@@ -548,10 +548,8 @@ auto search_thread_worker_run() -> void
 }
 
 
-auto search_prep(char * cmdline, char * progheader) -> void
+auto search_open_output_files(char * cmdline, char * progheader) -> void
 {
-  /* open output files */
-
   if (opt_alnout != nullptr)
     {
       fp_alnout = fopen_output(opt_alnout);
@@ -680,9 +678,11 @@ auto search_prep(char * cmdline, char * progheader) -> void
           fatal("Unable to open OTU table (biom 1.0 format) output file for writing");
         }
     }
+}
 
-  /* check if it may be an UDB file */
 
+auto search_load_db(char * cmdline) -> void
+{
   bool const is_udb = udb_detect_isudb(opt_db);
 
   if (is_udb)
@@ -728,65 +728,94 @@ auto search_prep(char * cmdline, char * progheader) -> void
 }
 
 
-auto search_done() -> void
+auto search_prep(char * cmdline, char * progheader) -> void
 {
-  /* clean up, global */
+  search_open_output_files(cmdline, progheader);
+  search_load_db(cmdline);
+}
 
+
+auto search_unload_db() -> void
+{
   dbindex_free();
   db_free();
+}
 
+
+auto search_close_output_files() -> void
+{
   if (opt_lcaout != nullptr)
     {
       fclose(fp_lcaout);
+      fp_lcaout = nullptr;
     }
   if (opt_matched != nullptr)
     {
       fclose(fp_matched);
+      fp_matched = nullptr;
     }
   if (opt_notmatched != nullptr)
     {
       fclose(fp_notmatched);
+      fp_notmatched = nullptr;
     }
   if (opt_fastapairs != nullptr)
     {
       fclose(fp_fastapairs);
+      fp_fastapairs = nullptr;
     }
   if (opt_qsegout != nullptr)
     {
       fclose(fp_qsegout);
+      fp_qsegout = nullptr;
     }
   if (opt_tsegout != nullptr)
     {
       fclose(fp_tsegout);
+      fp_tsegout = nullptr;
     }
   if (fp_uc != nullptr)
     {
       fclose(fp_uc);
+      fp_uc = nullptr;
     }
   if (fp_blast6out != nullptr)
     {
       fclose(fp_blast6out);
+      fp_blast6out = nullptr;
     }
   if (fp_userout != nullptr)
     {
       fclose(fp_userout);
+      fp_userout = nullptr;
       clean_up(); // free userfields allocation
     }
   if (fp_alnout != nullptr)
     {
       fclose(fp_alnout);
+      fp_alnout = nullptr;
     }
   if (fp_samout != nullptr)
     {
       fclose(fp_samout);
+      fp_samout = nullptr;
     }
   show_rusage();
 }
 
 
-auto usearch_global(struct Parameters const & parameters, char * cmdline, char * progheader) -> void
+auto search_done() -> void
 {
-  search_prep(cmdline, progheader);
+  search_unload_db();
+  search_close_output_files();
+}
+
+
+auto search_process_query_file(const char * query_path) -> int
+{
+  /* reset per-file counters */
+  count_matched = 0;
+  count_notmatched = 0;
 
   if (opt_dbmatched != nullptr)
     {
@@ -816,7 +845,7 @@ auto usearch_global(struct Parameters const & parameters, char * cmdline, char *
   qmatches_abundance = 0;
   queries = 0;
   queries_abundance = 0;
-  query_fastx_h = fastx_open(parameters.opt_usearch_global);
+  query_fastx_h = fastx_open(query_path);
 
   /* allocate memory for thread info */
   si_plus = (struct searchinfo_s *) xmalloc(opt_threads *
@@ -899,7 +928,6 @@ auto usearch_global(struct Parameters const & parameters, char * cmdline, char *
         }
     }
 
-
   // Add OTUs with no matches to OTU table
   if ((opt_otutabout != nullptr) || (opt_mothur_shared_out != nullptr) || (opt_biomout != nullptr)) {
     for (int64_t i = 0; i < seqcount; i++) {
@@ -913,18 +941,21 @@ auto usearch_global(struct Parameters const & parameters, char * cmdline, char *
     {
       otutable_print_biomout(fp_biomout);
       fclose(fp_biomout);
+      fp_biomout = nullptr;
     }
 
   if (opt_otutabout != nullptr)
     {
       otutable_print_otutabout(fp_otutabout);
       fclose(fp_otutabout);
+      fp_otutabout = nullptr;
     }
 
   if (opt_mothur_shared_out != nullptr)
     {
       otutable_print_mothur_shared_out(fp_mothur_shared_out);
       fclose(fp_mothur_shared_out);
+      fp_mothur_shared_out = nullptr;
     }
 
   otutable_done();
@@ -974,16 +1005,27 @@ auto usearch_global(struct Parameters const & parameters, char * cmdline, char *
     }
 
   xfree(dbmatched);
+  dbmatched = nullptr;
 
   if (opt_dbmatched != nullptr)
     {
       fclose(fp_dbmatched);
+      fp_dbmatched = nullptr;
     }
   if (opt_dbnotmatched != nullptr)
     {
       fclose(fp_dbnotmatched);
+      fp_dbnotmatched = nullptr;
     }
 
+  return 0;
+}
+
+
+auto usearch_global(struct Parameters const & parameters, char * cmdline, char * progheader) -> void
+{
+  search_prep(cmdline, progheader);
+  search_process_query_file(parameters.opt_usearch_global);
   search_done();
 }
 

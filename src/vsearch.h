@@ -502,6 +502,10 @@ struct Parameters {
   char * opt_udbinfo = nullptr;
   char * opt_udbstats = nullptr;
   char * opt_usearch_global = nullptr;
+  char * opt_usearch_global_daemon = nullptr;
+  char * opt_submit_query = nullptr;
+  char * opt_config = nullptr;
+  int64_t opt_max_batch_sequences = 0;
   char * progname = nullptr;  // refactoring: unused?
   std::FILE * fp_log = nullptr;
   double opt_fastq_truncee_rate = dbl_max;

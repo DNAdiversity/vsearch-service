@@ -49,6 +49,9 @@ AM_CXXFLAGS = $(AM_CFLAGS) -std=c++11 -fno-exceptions
 export MACOSX_DEPLOYMENT_TARGET=10.9
 
 VSEARCHHEADERS=\
+config_yaml.h \
+daemon.h \
+dirwatch.h \
 align_simd.h \
 allpairs.h \
 arch.h \
@@ -170,6 +173,9 @@ endif
 # cpu.cc and city.cc are excluded — they need per-target SIMD/warning flags
 # and are built as separate sub-libraries (libcpu_*, libcityhash_*).
 VSEARCH_COMMON_SOURCES = \
+config_yaml.cc \
+daemon.cc \
+dirwatch.cc \
 align_simd.cc \
 allpairs.cc \
 arch.cc \

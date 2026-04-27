@@ -62,6 +62,31 @@
 
 auto usearch_global(struct Parameters const & parameters, char * cmdline, char * progheader) -> void;
 
+/* === Daemon-friendly decomposed search API ===
+   Normal single-run code uses usearch_global() above.
+   Daemon code calls these in sequence:
+     1. search_open_output_files() + search_load_db()  (once at startup)
+     2. search_process_query_file()                    (once per input file)
+     3. search_unload_db() + search_close_output_files() (once at shutdown)
+   search_prep / search_done remain as wrappers for backward compatibility. */
+
+/* Open all output files (alnout, uc, blast6out, etc.) based on current opt_* globals. */
+auto search_open_output_files(char * cmdline, char * progheader) -> void;
+
+/* Load reference database and build k-mer index.  Sets file-static seqcount and tophits. */
+auto search_load_db(char * cmdline) -> void;
+
+/* Process one query FASTA/FASTQ file against the already-loaded database.
+   Opens and closes per-file output files, runs threaded search, writes stats.
+   Returns 0 on success, non-zero on error. */
+auto search_process_query_file(const char * query_path) -> int;
+
+/* Free the k-mer index and database (reverse of search_load_db). */
+auto search_unload_db() -> void;
+
+/* Close all output file handles (reverse of search_open_output_files). */
+auto search_close_output_files() -> void;
+
 /* === Library API for embedding global search === */
 
 /* Result of a single search hit. The target's header can be obtained
